@@ -1,13 +1,4 @@
-//  We want our faucet to:
-//    - Store eth on the contract
-//    - Send 1 eth to tx sender
-//    - Accept donations (refills) from anyone
-//    - Allow the owner to withdraw all eth from contract
-
 pragma solidity ^0.4.16;
-
-//  @title Ownership contract
-//  @dev enables ownership of the faucet contract
 
 contract owned {
     address public owner;
@@ -28,34 +19,36 @@ contract owned {
 }
 
 contract IsPayable is owned {
-    uint public balance;
-    string public lastEmittedText;
 
-    event Tapped(address tappedBy);
-    event emitText(string textToEmit);
-    
-    // On deployment, contract's balance is 0
-    constructor() public {
-        balance = 0;
-    }
+    event WithdrawSuccessful(address indexed emptiedBy);
+    event FallbackFunctionFired();
+    event BalanceChecked();
+    event TransferEther(address indexed requestedBy);
 
-    // A fallback function that fires when eth is sent w/o a call
+    // Fallback function fires when eth is sent to contract w/o calling a
+    // function, or when called function does not exist in contract, or when
+    // invalid arguments are passed to a function
     function () payable public {
-        balance = balance + msg.value;
+        emit FallbackFunctionFired();
     }
 
-    function testEmit(string text) public {
-        lastEmittedText = text;
-        emit emitText(text);
+    // Returns the contract's balance: address(this).balance
+    function getContractBalance() public returns (uint contractBalance) {
+        emit BalanceChecked();
+        return address(this).balance;
     }
 
-    function getText() public view returns (string textToReturn) {
-        return lastEmittedText;
+    // Contract owner can empty balance + transfer all assets to himselfd
+    function withdraw(uint amountToWithdraw) onlyOwner public {
+        require(address(this).balance > 0);
+        msg.sender.transfer(amountToWithdraw);
+        emit WithdrawSuccessful(msg.sender);
     }
 
-    function getEth() public {
-        msg.sender.transfer(1000000000000000000);
-        emit Tapped(msg.sender);
+    // getEth() transfers 1 eth from contract to msg.sender
+    function transferEth(address transferTo) onlyOwner public {
+        require(address(this).balance > 1000000000000000000);
+        transferTo.transfer(1000000000000000000);
+        emit TransferEther(msg.sender);
     }
-
 }
